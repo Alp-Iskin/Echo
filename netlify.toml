@@ -1,0 +1,7 @@
+# Netlify build config for the journal app.
+# Netlify auto-detects Next.js and installs @netlify/plugin-nextjs, which turns
+# the /api/echo route into a serverless function and sets the publish dir.
+# Set GEMINI_API_KEY as an environment variable in the Netlify site settings.
+
+[build]
+  command = "npm run build"
