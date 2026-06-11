@@ -907,7 +907,7 @@ export default function Home() {
         {/* Left sidebar */}
         <aside
           className={[
-            "w-80 shrink-0 rounded-2xl border p-4 shadow-sm",
+            "sticky top-6 flex h-[calc(100vh-48px)] w-80 shrink-0 flex-col self-start overflow-hidden rounded-2xl border p-4 shadow-sm",
             t.cardBg,
             t.cardBorder,
           ].join(" ")}
@@ -921,13 +921,13 @@ export default function Home() {
               <button
                 type="button"
                 aria-label="About"
-                title="About"
+                title="About Journal with Echo"
                 onClick={() => setShowAbout(true)}
                 className={[
-                  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] leading-none transition-colors",
-                  t.cardBorder,
-                  t.mutedText,
-                  t.subtleHover,
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors",
+                  olive.softBg,
+                  olive.softText,
+                  olive.softBorder,
                 ].join(" ")}
               >
                 i
@@ -1088,8 +1088,8 @@ export default function Home() {
             />
           </div>
 
-          {/* Entries list */}
-          <div className="mt-4 space-y-2">
+          {/* Entries list — the only part of the sidebar that scrolls */}
+          <div className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1 min-h-0">
             {a.filteredEntries.length === 0 ? (
               <div
                 className={[
