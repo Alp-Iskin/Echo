@@ -718,14 +718,14 @@ function Welcome({
             t.mutedText,
           ].join(" ")}
         >
-          Your private journal
+          Your journal, reflected
         </div>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-          Welcome 👋
+          Journal with Echo
         </h1>
         <p className={["mt-3 text-sm leading-6", t.mutedText].join(" ")}>
           A calm space to write, keep track of what matters, and think things
-          through — with a companion that actually reads what you wrote.
+          through — with Echo, a companion that actually reads what you wrote.
         </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -908,7 +908,9 @@ export default function Home() {
         >
           {/* Top controls */}
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold tracking-tight">Workspace</div>
+            <div className="text-sm font-semibold tracking-tight">
+              Journal with Echo
+            </div>
             <div className="flex items-center gap-2">
               <button
                 className={btns.btnSecondary}

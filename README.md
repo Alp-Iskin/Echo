@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Journal with Echo
 
-## Getting Started
+*Your journal, reflected.*
 
-First, run the development server:
+A private journaling app where everything — entries, to-dos, and long-term
+goals — lives only in your browser. Alongside your writing is **Echo**, an AI
+companion that reads your journal and helps you reflect.
+
+## Features
+
+- **Journal** — write entries; search across everything.
+- **To-dos & Goals** — track day-to-day tasks and longer-term goals beside your writing.
+- **Echo (AI companion)** — chat with an assistant that has your journal, to-dos, and goals as context.
+  - **Gemini** (default) — natural, capable replies via a server route that keeps your API key private.
+  - **On-device** — a fully private/offline mode (WebLLM + WebGPU); nothing leaves your device.
+- **Private by design** — no accounts, no database. Data is stored in `localStorage`. The only thing that leaves your device is the text sent to Gemini when you ask Echo (and only in Gemini mode).
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # then add your free key from https://aistudio.google.com/apikey
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploying (Netlify)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Push to GitHub and import the repo in Netlify — it auto-detects Next.js. Set
+`GEMINI_API_KEY` in the site's environment variables, then deploy. The
+`/api/echo` route runs as a serverless function so the key stays server-side.
 
-## Learn More
+## Tech
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js 16 · React 19 · Tailwind 4 · Gemini API · `@mlc-ai/web-llm`
