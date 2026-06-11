@@ -660,14 +660,16 @@ function Welcome({
   btns,
   olive,
   isDark,
-  onStart,
+  returning,
+  onDone,
   onToggleTheme,
 }: {
   t: ThemeTokens;
   btns: Btns;
   olive: OliveTokens;
   isDark: boolean;
-  onStart: () => void;
+  returning: boolean; // true when reopened via "About", false on first run
+  onDone: () => void;
   onToggleTheme: () => void;
 }) {
   const features = [
@@ -759,10 +761,10 @@ function Welcome({
 
         <button
           type="button"
-          onClick={onStart}
+          onClick={onDone}
           className={[btns.btnPrimary, "mt-6 w-full"].join(" ")}
         >
-          Start journaling →
+          {returning ? "Back to journal" : "Start journaling →"}
         </button>
       </div>
     </div>
@@ -778,6 +780,9 @@ export default function Home() {
   // Inline rename UI
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+
+  // "About" overlay — same screen as the first-run welcome, reopenable anytime
+  const [showAbout, setShowAbout] = useState(false);
 
   const isDark = a.ui.theme === "dark";
 
@@ -864,14 +869,15 @@ export default function Home() {
     return <div className={["min-h-screen", t.pageBg].join(" ")} />;
   }
 
-  if (!a.welcomed) {
+  if (!a.welcomed || showAbout) {
     return (
       <Welcome
         t={t}
         btns={btns}
         olive={olive}
         isDark={isDark}
-        onStart={a.dismissWelcome}
+        returning={a.welcomed}
+        onDone={() => (a.welcomed ? setShowAbout(false) : a.dismissWelcome())}
         onToggleTheme={a.toggleTheme}
       />
     );
@@ -908,8 +914,24 @@ export default function Home() {
         >
           {/* Top controls */}
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold tracking-tight">
-              Journal with Echo
+            <div className="flex items-center gap-1.5">
+              <div className="text-sm font-semibold tracking-tight">
+                Journal with Echo
+              </div>
+              <button
+                type="button"
+                aria-label="About"
+                title="About"
+                onClick={() => setShowAbout(true)}
+                className={[
+                  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] leading-none transition-colors",
+                  t.cardBorder,
+                  t.mutedText,
+                  t.subtleHover,
+                ].join(" ")}
+              >
+                i
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <button
