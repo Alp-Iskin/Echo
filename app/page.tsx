@@ -655,6 +655,120 @@ function EchoPanel({
   );
 }
 
+function Welcome({
+  t,
+  btns,
+  olive,
+  isDark,
+  onStart,
+  onToggleTheme,
+}: {
+  t: ThemeTokens;
+  btns: Btns;
+  olive: OliveTokens;
+  isDark: boolean;
+  onStart: () => void;
+  onToggleTheme: () => void;
+}) {
+  const features = [
+    {
+      title: "Journal",
+      desc: "Write freely. Every entry is saved and searchable.",
+    },
+    {
+      title: "To-dos",
+      desc: "Keep the day’s tasks right beside your writing.",
+    },
+    {
+      title: "Goals",
+      desc: "Track the longer-term things you’re working toward.",
+    },
+    {
+      title: "Echo",
+      desc: "An AI that reads your journal and helps you reflect.",
+    },
+  ];
+
+  return (
+    <div
+      className={[
+        "relative flex min-h-screen items-center justify-center p-6",
+        t.pageBg,
+        t.text,
+      ].join(" ")}
+    >
+      <button
+        type="button"
+        onClick={onToggleTheme}
+        className={[btns.btnSecondary, "absolute right-6 top-6"].join(" ")}
+      >
+        {isDark ? "Light" : "Dark"}
+      </button>
+
+      <div
+        className={[
+          "w-full max-w-xl rounded-3xl border p-8 shadow-sm",
+          t.cardBg,
+          t.cardBorder,
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "text-xs font-semibold uppercase tracking-wide",
+            t.mutedText,
+          ].join(" ")}
+        >
+          Your private journal
+        </div>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+          Welcome 👋
+        </h1>
+        <p className={["mt-3 text-sm leading-6", t.mutedText].join(" ")}>
+          A calm space to write, keep track of what matters, and think things
+          through — with a companion that actually reads what you wrote.
+        </p>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {features.map((f) => (
+            <div
+              key={f.title}
+              className={[
+                "rounded-2xl border p-4",
+                t.cardBorder,
+                t.subtleBg,
+              ].join(" ")}
+            >
+              <div className="text-sm font-semibold">{f.title}</div>
+              <div className={["mt-1 text-xs leading-5", t.mutedText].join(" ")}>
+                {f.desc}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className={[
+            "mt-6 rounded-xl border border-dashed p-3 text-xs leading-5",
+            t.cardBorder,
+            t.mutedText,
+          ].join(" ")}
+        >
+          🔒 Everything stays in this browser — no accounts, no tracking. Your
+          entries never leave your device unless you ask Echo a question.
+        </div>
+
+        <button
+          type="button"
+          onClick={onStart}
+          className={[btns.btnPrimary, "mt-6 w-full"].join(" ")}
+        >
+          Start journaling →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const a = useApp();
 
@@ -738,11 +852,29 @@ export default function Home() {
     const active = a.ui.activeMain === panel;
     return [
       btns.btnGhost,
-      "flex-1",
+      "w-full",
       active
         ? `${olive.softBg} ${olive.softText} ring-1 ring-inset ${olive.softBorder}`
         : "",
     ].join(" ");
+  }
+
+  // Avoid flashing the welcome screen before we've read localStorage.
+  if (!a.hydrated) {
+    return <div className={["min-h-screen", t.pageBg].join(" ")} />;
+  }
+
+  if (!a.welcomed) {
+    return (
+      <Welcome
+        t={t}
+        btns={btns}
+        olive={olive}
+        isDark={isDark}
+        onStart={a.dismissWelcome}
+        onToggleTheme={a.toggleTheme}
+      />
+    );
   }
 
   // ✅ FIX: no inline component <MainArea /> (prevents focus loss)
@@ -803,7 +935,7 @@ export default function Home() {
               t.cardBg,
             ].join(" ")}
           >
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 className={navBtn("journal")}
                 type="button"

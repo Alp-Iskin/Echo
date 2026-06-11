@@ -17,11 +17,13 @@ import {
   loadGoals,
   loadTodos,
   loadUI,
+  loadWelcomed,
   saveChat,
   saveEntries,
   saveGoals,
   saveTodos,
   saveUI,
+  saveWelcomed,
 } from "./storage";
 import {
   buildSystemPrompt,
@@ -63,6 +65,14 @@ export function useApp() {
   const [goals, setGoals] = useState<GoalItem[]>([]);
   const [todoDraft, setTodoDraft] = useState("");
   const [goalDraft, setGoalDraft] = useState("");
+
+  // ----------------------------
+  // App lifecycle / onboarding
+  // ----------------------------
+  // `hydrated` flips true once localStorage has loaded, so we don't flash the
+  // welcome screen at returning users before we know they've seen it.
+  const [hydrated, setHydrated] = useState(false);
+  const [welcomed, setWelcomed] = useState(true);
 
   // ----------------------------
   // UI state
@@ -141,6 +151,8 @@ export function useApp() {
     setUI(u);
     setMessages(c);
     setWebgpuAvailable(isWebGPUAvailable());
+    setWelcomed(loadWelcomed());
+    setHydrated(true);
 
     if (e.length > 0) {
       setActiveId(e[0].id);
@@ -438,6 +450,12 @@ export function useApp() {
     }
   }
 
+  function dismissWelcome() {
+    setWelcomed(true);
+    saveWelcomed(true);
+    setMain("journal");
+  }
+
   function clearChat() {
     if (messages.length === 0) return;
     const ok = confirm("Clear this conversation with Echo?");
@@ -518,6 +536,11 @@ export function useApp() {
     setGoalDraft,
     addGoal,
     deleteGoal,
+
+    // lifecycle / onboarding
+    hydrated,
+    welcomed,
+    dismissWelcome,
 
     // echo (AI companion)
     messages,

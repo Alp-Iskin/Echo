@@ -5,6 +5,7 @@ const TODOS_KEY = "journal_todos_v1";
 const GOALS_KEY = "journal_goals_v1";
 const UI_KEY = "journal_ui_v2"; // bumped because UI schema changed (theme)
 const CHAT_KEY = "journal_echo_chat_v1";
+const WELCOME_KEY = "journal_welcomed_v1";
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -108,6 +109,14 @@ export function loadChat(): ChatMessage[] {
 
 export function saveChat(messages: ChatMessage[]) {
   localStorage.setItem(CHAT_KEY, JSON.stringify(messages));
+}
+
+export function loadWelcomed(): boolean {
+  return localStorage.getItem(WELCOME_KEY) === "1";
+}
+
+export function saveWelcomed(v: boolean) {
+  localStorage.setItem(WELCOME_KEY, v ? "1" : "0");
 }
 
 export function formatDate(ts: number) {
