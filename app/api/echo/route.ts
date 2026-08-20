@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 // Try Google's current stable Flash model first, with the previous stable
 // release as a fallback for transient availability problems.
-const MODELS = ["gemini-3.6-flash", "gemini-3.5-flash"];
+const MODELS = ["gemini-3.7-flash", "gemini-3.6-flash"];
 
 // Statuses worth retrying: overloaded / rate-limited / transient server errors.
 const RETRYABLE = new Set([429, 500, 503]);
