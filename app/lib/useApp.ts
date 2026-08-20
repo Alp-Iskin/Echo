@@ -35,6 +35,10 @@ import {
   type EchoModelId,
   type InitProgress,
 } from "./ai";
+import {
+  completeAssistantMessage,
+  failAssistantMessage,
+} from "./echoTransport";
 
 type ToastKind = "info" | "error" | "success";
 type Toast = { message: string; kind: ToastKind };
@@ -165,11 +169,26 @@ export function useApp() {
   // ----------------------------
   // Persist to localStorage
   // ----------------------------
-  useEffect(() => saveEntries(entries), [entries]);
-  useEffect(() => saveTodos(todos), [todos]);
-  useEffect(() => saveGoals(goals), [goals]);
-  useEffect(() => saveUI(ui), [ui]);
-  useEffect(() => saveChat(messages), [messages]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveEntries(entries);
+  }, [entries, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveTodos(todos);
+  }, [todos, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveGoals(goals);
+  }, [goals, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveUI(ui);
+  }, [ui, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    saveChat(messages);
+  }, [messages, hydrated]);
 
   // ----------------------------
   // Derived journal values
@@ -408,7 +427,15 @@ export function useApp() {
     const history = [...messages, userMsg];
 
     const assistantId = crypto.randomUUID();
-    setMessages([...history, { id: assistantId, role: "assistant", content: "" }]);
+    setMessages([
+      ...history,
+      {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        delivery: "pending",
+      },
+    ]);
     setChatDraft("");
 
     const onToken = (full: string) =>
@@ -434,16 +461,13 @@ export function useApp() {
         const system = buildSystemPrompt({ entries, todos, goals });
         await streamEcho({ engine, system, history, onToken });
       }
+      setMessages((prev) => completeAssistantMessage(prev, assistantId));
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Something went wrong.";
       setAiError(message);
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? { ...m, content: m.content || `⚠️ ${message}` }
-            : m
-        )
+        failAssistantMessage(prev, assistantId, `⚠️ ${message}`)
       );
     } finally {
       setAiStatus("idle");
@@ -488,7 +512,7 @@ export function useApp() {
     setUI((prev) => ({ ...prev, aiBackend: backend }));
   }
 
-  // ✅ FIXED: no stale ui.theme; updates + toast are consistent
+  // Calculate the toast and state update from the same previous theme value.
   function toggleTheme() {
     setUI((prev) => {
       const next = prev.theme === "light" ? "dark" : "light";

@@ -117,6 +117,7 @@ function JournalMain({
           <div className="space-y-4">
             <div>
               <label
+                htmlFor="journal-title"
                 className={[
                   "text-sm font-medium",
                   isDark ? "text-zinc-200" : "text-zinc-700",
@@ -125,6 +126,7 @@ function JournalMain({
                 Title
               </label>
               <input
+                id="journal-title"
                 value={a.title}
                 onChange={(e) => a.setTitle(e.target.value)}
                 placeholder="Give it a title…"
@@ -145,6 +147,7 @@ function JournalMain({
 
             <div>
               <label
+                htmlFor="journal-entry"
                 className={[
                   "text-sm font-medium",
                   isDark ? "text-zinc-200" : "text-zinc-700",
@@ -153,6 +156,7 @@ function JournalMain({
                 Entry
               </label>
               <textarea
+                id="journal-entry"
                 value={a.body}
                 onChange={(e) => a.setBody(e.target.value)}
                 placeholder="Write your thoughts here…"
@@ -242,6 +246,7 @@ function TodoPanel({
 
       <div className="mt-3 flex gap-2">
         <input
+          aria-label="New to-do"
           value={a.todoDraft}
           onChange={(e) => a.setTodoDraft(e.target.value)}
           placeholder="Add a task…"
@@ -278,6 +283,7 @@ function TodoPanel({
               ].join(" ")}
             >
               <input
+                aria-label={`Mark ${tt.text} as ${tt.done ? "not done" : "done"}`}
                 type="checkbox"
                 checked={tt.done}
                 onChange={() => a.toggleTodo(tt.id)}
@@ -291,6 +297,7 @@ function TodoPanel({
                 {tt.text}
               </div>
               <button
+                aria-label={`Delete to-do: ${tt.text}`}
                 className={btns.btnGhost}
                 onClick={() => a.deleteTodo(tt.id)}
                 type="button"
@@ -341,6 +348,7 @@ function GoalsPanel({
 
       <div className="mt-3 flex gap-2">
         <input
+          aria-label="New long-term goal"
           value={a.goalDraft}
           onChange={(e) => a.setGoalDraft(e.target.value)}
           placeholder="Add a goal…"
@@ -378,6 +386,7 @@ function GoalsPanel({
             >
               <div className="flex-1 text-sm">{g.text}</div>
               <button
+                aria-label={`Delete goal: ${g.text}`}
                 className={btns.btnGhost}
                 onClick={() => a.deleteGoal(g.id)}
                 type="button"
@@ -469,7 +478,7 @@ function EchoPanel({
             {
               id: "local",
               label: "On-device",
-              hint: "Fully private — nothing leaves your device",
+              hint: "Runs locally after the model download",
             },
           ] as const
         ).map((b) => {
@@ -522,7 +531,7 @@ function EchoPanel({
       {/* Privacy note */}
       <div className={["mt-2 text-xs", t.mutedText].join(" ")}>
         {a.ui.aiBackend === "cloud"
-          ? "Your entries live only in this browser. When you ask, the relevant text is sent to Google’s Gemini to write a reply."
+          ? "When you ask, a size-limited selection of your journal entries, goals, to-dos, and recent Echo chat — including your new message — is sent to Google’s Gemini through this app’s server. Your saved source data remains in this browser."
           : "Runs entirely on your device — your writing never leaves this browser. First message downloads the model once."}
       </div>
 
@@ -618,6 +627,7 @@ function EchoPanel({
       {/* Composer */}
       <div className="mt-4 flex items-end gap-2">
         <textarea
+          aria-label="Message Echo"
           value={a.chatDraft}
           onChange={(e) => a.setChatDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -658,7 +668,6 @@ function EchoPanel({
 function Welcome({
   t,
   btns,
-  olive,
   isDark,
   returning,
   onDone,
@@ -666,7 +675,6 @@ function Welcome({
 }: {
   t: ThemeTokens;
   btns: Btns;
-  olive: OliveTokens;
   isDark: boolean;
   returning: boolean; // true when reopened via "About", false on first run
   onDone: () => void;
@@ -755,8 +763,10 @@ function Welcome({
             t.mutedText,
           ].join(" ")}
         >
-          🔒 Everything stays in this browser — no accounts, no tracking. Your
-          entries never leave your device unless you ask Echo a question.
+          🔒 Saved entries stay in this browser without an app account or
+          database. Gemini mode sends selected context to Google when you
+          message Echo; on-device mode keeps your writing here after its model
+          download.
         </div>
 
         <button
@@ -766,6 +776,16 @@ function Welcome({
         >
           {returning ? "Back to journal" : "Start journaling →"}
         </button>
+        <div className={["mt-4 text-center text-xs", t.mutedText].join(" ")}>
+          <a
+            href="https://github.com/Alp-Iskin/Echo"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-4"
+          >
+            View the project on GitHub
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -874,7 +894,6 @@ export default function Home() {
       <Welcome
         t={t}
         btns={btns}
-        olive={olive}
         isDark={isDark}
         returning={a.welcomed}
         onDone={() => (a.welcomed ? setShowAbout(false) : a.dismissWelcome())}
@@ -883,7 +902,8 @@ export default function Home() {
     );
   }
 
-  // ✅ FIX: no inline component <MainArea /> (prevents focus loss)
+  // Keep this as an element instead of an inline component so typing does not
+  // remount the active panel and lose focus.
   const mainEl =
     a.ui.activeMain === "todo" ? (
       <TodoPanel a={a} full t={t} btns={btns} openFull={openFull} />

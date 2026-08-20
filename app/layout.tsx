@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Journal with Echo",
   description:
-    "A private journal that listens. Write, track your goals, and reflect with Echo — an AI companion that reads your entries. Everything stays on your device.",
+    "A browser-based journal for writing, goals, and reflection, with optional Gemini or on-device AI.",
 };
 
 export default function RootLayout({

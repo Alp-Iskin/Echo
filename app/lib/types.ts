@@ -28,11 +28,13 @@ export type Theme = "light" | "dark";
 export type AiBackend = "cloud" | "local";
 
 export type ChatRole = "user" | "assistant";
+export type ChatDelivery = "pending" | "complete" | "failed";
 
 export type ChatMessage = {
   id: string;
   role: ChatRole;
   content: string;
+  delivery?: ChatDelivery;
 };
 
 export type UIState = {

@@ -9,6 +9,11 @@
 // doesn't exist.
 
 import type { Entry, TodoItem, GoalItem, ChatMessage } from "./types";
+import {
+  buildGeminiRequestBody,
+  getModelHistory,
+  readEchoTextStream,
+} from "./echoTransport";
 
 export type EchoModelId =
   | "Llama-3.2-1B-Instruct-q4f16_1-MLC"
@@ -153,16 +158,13 @@ export function buildSystemPrompt(opts: {
 
 type MiniMessage = { role: "system" | "user" | "assistant"; content: string };
 
-// Keep only the last N turns of chat so history doesn't blow the context window.
-const MAX_HISTORY = 8;
-
 export async function streamEcho(opts: {
   engine: unknown;
   system: string;
   history: ChatMessage[];
   onToken: (full: string) => void;
 }): Promise<string> {
-  const trimmed = opts.history.slice(-MAX_HISTORY);
+  const trimmed = getModelHistory(opts.history);
   const messages: MiniMessage[] = [
     { role: "system", content: opts.system },
     ...trimmed.map((m) => ({ role: m.role, content: m.content })),
@@ -212,13 +214,11 @@ export async function streamGemini(opts: {
   history: ChatMessage[];
   onToken: (full: string) => void;
 }): Promise<string> {
+  const body = buildGeminiRequestBody(opts.system, opts.history);
   const res = await fetch("/api/echo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system: opts.system,
-      history: opts.history.slice(-MAX_HISTORY),
-    }),
+    body,
   });
 
   if (!res.ok || !res.body) {
@@ -226,14 +226,5 @@ export async function streamGemini(opts: {
     throw new Error(msg || `Echo request failed (${res.status}).`);
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let full = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    full += decoder.decode(value, { stream: true });
-    opts.onToken(full);
-  }
-  return full;
+  return readEchoTextStream(res.body, opts.onToken);
 }

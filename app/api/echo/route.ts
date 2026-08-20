@@ -5,18 +5,128 @@
 // back as plain text. Set GEMINI_API_KEY in .env.local (dev) and in the
 // Netlify site environment variables (prod).
 
+import {
+  createGeminiSseDecoder,
+  GEMINI_REQUEST_MAX_BYTES,
+} from "../../lib/echoTransport";
+
 export const dynamic = "force-dynamic";
 
-// Tried in order. 2.5-flash is the most natural; 2.0-flash is a sturdy fallback
-// that's far less likely to be overloaded when 2.5 returns 503.
-const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+// Try Google's current stable Flash model first, with the previous stable
+// release as a fallback for transient availability problems.
+const MODELS = ["gemini-3.6-flash", "gemini-3.5-flash"];
 
 // Statuses worth retrying: overloaded / rate-limited / transient server errors.
 const RETRYABLE = new Set([429, 500, 503]);
 
 type IncomingMessage = { role: "user" | "assistant"; content: string };
+type RateLimitEntry = { count: number; resetAt: number };
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 10;
+// Serverless instances do not share memory, so this is a burst guard for each
+// warm instance rather than a durable, global quota.
+const rateLimits = new Map<string, RateLimitEntry>();
+let lastRateLimitCleanup = 0;
+
+class BodyTooLargeError extends Error {}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function requestOriginIsAllowed(req: Request): boolean {
+  const fetchSite = req.headers.get("sec-fetch-site");
+  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "same-site") {
+    return false;
+  }
+
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+
+  let normalizedOrigin: string;
+  try {
+    normalizedOrigin = new URL(origin).origin;
+  } catch {
+    return false;
+  }
+
+  return normalizedOrigin === new URL(req.url).origin;
+}
+
+function getClientId(req: Request): string {
+  const netlifyIp = req.headers.get("x-nf-client-connection-ip")?.trim();
+  if (netlifyIp) return netlifyIp;
+
+  const forwardedIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (forwardedIp) return forwardedIp;
+
+  return req.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+function takeRateLimitSlot(
+  clientId: string,
+  now = Date.now()
+): { allowed: boolean; retryAfterSeconds: number } {
+  if (now - lastRateLimitCleanup >= RATE_LIMIT_WINDOW_MS) {
+    lastRateLimitCleanup = now;
+    for (const [id, entry] of rateLimits) {
+      if (entry.resetAt <= now) rateLimits.delete(id);
+    }
+  }
+
+  const current = rateLimits.get(clientId);
+  if (!current || current.resetAt <= now) {
+    rateLimits.set(clientId, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
+    };
+  }
+
+  current.count += 1;
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+async function parseJsonBody(req: Request): Promise<unknown> {
+  const contentLength = req.headers.get("content-length");
+  if (contentLength) {
+    const declaredBytes = Number(contentLength);
+    if (
+      Number.isFinite(declaredBytes) &&
+      declaredBytes > GEMINI_REQUEST_MAX_BYTES
+    ) {
+      throw new BodyTooLargeError();
+    }
+  }
+
+  if (!req.body) throw new SyntaxError("Missing request body.");
+
+  const reader = req.body.getReader();
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let raw = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    bytesRead += value.byteLength;
+    if (bytesRead > GEMINI_REQUEST_MAX_BYTES) {
+      await reader.cancel().catch(() => {});
+      throw new BodyTooLargeError();
+    }
+    raw += decoder.decode(value, { stream: true });
+  }
+
+  raw += decoder.decode();
+  return JSON.parse(raw) as unknown;
+}
 
 // Get a streamable Gemini response, retrying each model on transient failures
 // and falling back to the next model. Returns the ok Response, or the last
@@ -44,6 +154,24 @@ async function getGeminiStream(
 }
 
 export async function POST(req: Request) {
+  if (!requestOriginIsAllowed(req)) {
+    return new Response("Forbidden.", {
+      status: 403,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
+  const rateLimit = takeRateLimitSlot(getClientId(req));
+  if (!rateLimit.allowed) {
+    return new Response("Too many Echo requests. Try again shortly.", {
+      status: 429,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+      },
+    });
+  }
+
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     return new Response(
@@ -55,10 +183,16 @@ export async function POST(req: Request) {
   let system = "";
   let history: IncomingMessage[] = [];
   try {
-    const parsed = await req.json();
+    const parsed = (await parseJsonBody(req)) as {
+      system?: unknown;
+      history?: unknown;
+    } | null;
     system = typeof parsed?.system === "string" ? parsed.system : "";
     history = Array.isArray(parsed?.history) ? parsed.history : [];
-  } catch {
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) {
+      return new Response("Request body is too large.", { status: 413 });
+    }
     return new Response("Bad request.", { status: 400 });
   }
 
@@ -72,7 +206,6 @@ export async function POST(req: Request) {
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents,
-    generationConfig: { temperature: 0.9, topP: 0.95 },
   };
 
   const upstream = await getGeminiStream(key, body);
@@ -93,35 +226,23 @@ export async function POST(req: Request) {
 
   // Transform Gemini's SSE stream into a plain-text stream of token deltas.
   const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  let buffer = "";
+  const sse = createGeminiSseDecoder();
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.close();
-        return;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith("data:")) continue;
-        const data = trimmed.slice(5).trim();
-        if (!data || data === "[DONE]") continue;
-        try {
-          const json = JSON.parse(data);
-          const parts = json?.candidates?.[0]?.content?.parts ?? [];
-          const text = parts
-            .map((p: { text?: string }) => p.text ?? "")
-            .join("");
-          if (text) controller.enqueue(encoder.encode(text));
-        } catch {
-          // ignore partial / non-JSON keep-alive lines
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          const tail = sse.finish();
+          if (tail) controller.enqueue(encoder.encode(tail));
+          controller.close();
+          return;
         }
+        const text = sse.push(value);
+        if (text) controller.enqueue(encoder.encode(text));
+      } catch (error) {
+        controller.error(error);
       }
     },
     cancel() {
